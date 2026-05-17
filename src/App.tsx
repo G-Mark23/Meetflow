@@ -110,6 +110,7 @@ function App() {
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting>(initialMeetings[0])
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [copyMessage, setCopyMessage] = useState('')
+  const [isAiGenerating, setIsAiGenerating] = useState(false)
   const [newMeeting, setNewMeeting] = useState({
     title: '',
     time: '',
@@ -197,6 +198,62 @@ useEffect(() => {
     const newTasks = result.tasks.filter((task) => !existingIds.has(task.id))
     setTasks([...tasks, ...newTasks])
   }
+
+  const generateMinutesByAI = async () => {
+  setIsAiGenerating(true)
+
+  try {
+    const response = await fetch('/.netlify/functions/generate-minutes', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        meeting: selectedMeeting,
+        meetingNote,
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error('AI 生成失败')
+    }
+
+    const aiResult = await response.json()
+
+    const formattedTasks: Task[] = (aiResult.tasks || []).map(
+      (task: Omit<Task, 'id'>, index: number) => ({
+        id: Date.now() + index,
+        title: task.title || '待确认任务',
+        owner: task.owner || '待确认',
+        deadline: task.deadline || '待确认',
+        priority: task.priority || '中',
+        status: task.status || '未开始',
+        source: selectedMeeting.title,
+      })
+    )
+
+    const result: MinuteResult = {
+      summary: aiResult.summary || '暂无会议摘要。',
+      points: aiResult.points || [],
+      decisions: aiResult.decisions || [],
+      tasks: formattedTasks,
+      risks: aiResult.risks || [],
+      nextSteps: aiResult.nextSteps || [],
+    }
+
+    setMinuteResult(result)
+    setTasks([...tasks, ...formattedTasks])
+
+    setCopyMessage('AI 会议纪要生成成功')
+    setTimeout(() => setCopyMessage(''), 2000)
+  } catch (error) {
+    generateMinutes()
+    setCopyMessage('AI 生成失败，已使用本地规则生成纪要')
+    setTimeout(() => setCopyMessage(''), 2500)
+  } finally {
+    setIsAiGenerating(false)
+  }
+}
 
   const formatMinutesMarkdown = () => {
     if (!minuteResult) return ''
@@ -559,12 +616,20 @@ ${minuteResult.nextSteps.map((item, index) => `${index + 1}. ${item}`).join('\n'
               placeholder="请输入会议记录内容..."
             />
 
-            <div className="mt-5 flex justify-end">
+            <div className="mt-5 flex justify-end gap-3">
               <button
                 onClick={generateMinutes}
-                className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-medium text-white hover:bg-blue-700"
+                className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-medium hover:bg-slate-50"
               >
                 生成会议纪要与待办
+              </button>
+
+              <button
+                onClick={generateMinutesByAI}
+                disabled={isAiGenerating}
+                className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+              >
+                {isAiGenerating ? 'AI 正在生成中...' : 'AI 生成纪要与待办'}
               </button>
             </div>
           </div>
