@@ -16,7 +16,13 @@ import {
   Copy,
 } from 'lucide-react'
 
-type Page = 'dashboard' | 'meetingDetail' | 'tasks' | 'minutes'
+type Page =
+  | 'dashboard'
+  | 'meetings'
+  | 'meetingDetail'
+  | 'tasks'
+  | 'minutes'
+  | 'participants'
 
 type Task = {
   id: number
@@ -376,6 +382,20 @@ ${minuteResult.nextSteps.map((item, index) => `${index + 1}. ${item}`).join('\n'
     )
   }
 
+  const getParticipantList = () => {
+    const participantSet = new Set<string>()
+
+    meetings.forEach((meeting) => {
+      meeting.participants
+        .split(/[、,，\s]+/)
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .forEach((item) => participantSet.add(item))
+    })
+
+    return Array.from(participantSet)
+  }
+
   const Sidebar = () => (
     <aside className="w-64 bg-slate-950 text-white">
       <div className="px-6 py-6">
@@ -404,8 +424,12 @@ ${minuteResult.nextSteps.map((item, index) => `${index + 1}. ${item}`).join('\n'
         </button>
 
         <button
-          onClick={() => setCurrentPage('dashboard')}
-          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm text-slate-300 hover:bg-slate-800"
+          onClick={() => setCurrentPage('meetings')}
+          className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium ${
+            currentPage === 'meetings'
+              ? 'bg-blue-600 text-white'
+              : 'text-slate-300 hover:bg-slate-800'
+          }`}
         >
           <CalendarDays size={18} />
           我的会议
@@ -435,7 +459,14 @@ ${minuteResult.nextSteps.map((item, index) => `${index + 1}. ${item}`).join('\n'
           待办事项
         </button>
 
-        <button className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm text-slate-300 hover:bg-slate-800">
+        <button
+          onClick={() => setCurrentPage('participants')}
+          className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium ${
+            currentPage === 'participants'
+              ? 'bg-blue-600 text-white'
+              : 'text-slate-300 hover:bg-slate-800'
+          }`}
+        >
           <Users size={18} />
           参会人管理
         </button>
@@ -448,9 +479,11 @@ ${minuteResult.nextSteps.map((item, index) => `${index + 1}. ${item}`).join('\n'
       <div>
         <h2 className="text-2xl font-bold">
           {currentPage === 'dashboard' && '会议工作台'}
+          {currentPage === 'meetings' && '我的会议'}
           {currentPage === 'meetingDetail' && '会议详情'}
           {currentPage === 'tasks' && '待办事项'}
           {currentPage === 'minutes' && '会议纪要'}
+          {currentPage === 'participants' && '参会人管理'}
         </h2>
         <p className="mt-1 text-sm text-slate-500">
           聚合会议安排、纪要生成与待办跟进，提升视频会议协作效率
@@ -500,7 +533,12 @@ ${minuteResult.nextSteps.map((item, index) => `${index + 1}. ${item}`).join('\n'
                 集中查看即将开始和需要整理纪要的会议
               </p>
             </div>
-            <button className="text-sm font-medium text-blue-600">查看全部</button>
+            <button
+              onClick={() => setCurrentPage('meetings')}
+              className="text-sm font-medium text-blue-600 hover:text-blue-700"
+            >
+              查看全部
+            </button>
           </div>
 
           <div className="space-y-4">
@@ -763,6 +801,148 @@ ${minuteResult.nextSteps.map((item, index) => `${index + 1}. ${item}`).join('\n'
     </section>
   )
 
+  const MeetingsPage = () => (
+  <section className="p-8">
+    <div className="rounded-2xl bg-white p-6 shadow-sm">
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-bold">我的会议</h3>
+          <p className="mt-1 text-sm text-slate-500">
+            统一查看全部会议，并快速进入详情或生成纪要
+          </p>
+        </div>
+
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+        >
+          <Plus size={18} />
+          新建会议
+        </button>
+      </div>
+
+      <div className="space-y-4">
+        {meetings.map((meeting) => (
+          <div
+            key={meeting.id}
+            className="rounded-2xl border border-slate-200 p-5 hover:border-blue-200 hover:bg-blue-50/20"
+          >
+            <div className="flex items-start justify-between">
+              <div>
+                <h4 className="text-base font-semibold">{meeting.title}</h4>
+                <p className="mt-2 text-sm text-slate-500">
+                  {meeting.time}｜{meeting.participants}｜{meeting.type}
+                </p>
+                <p className="mt-2 text-sm text-slate-600">
+                  {meeting.background}
+                </p>
+              </div>
+
+              <span
+                className={`rounded-full px-3 py-1 text-xs ${
+                  meeting.status === '进行中'
+                    ? 'bg-blue-50 text-blue-600'
+                    : meeting.status === '未开始'
+                    ? 'bg-slate-100 text-slate-600'
+                    : 'bg-green-50 text-green-600'
+                }`}
+              >
+                {meeting.status}
+              </span>
+            </div>
+
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => openMeetingDetail(meeting)}
+                className="cursor-pointer rounded-lg bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700"
+              >
+                进入会议详情
+              </button>
+
+              <button
+                type="button"
+                onClick={() => openMeetingDetail(meeting)}
+                className="cursor-pointer rounded-lg border border-slate-200 px-3 py-2 text-sm hover:bg-white"
+              >
+                生成纪要
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+)
+
+const ParticipantsPage = () => {
+  const participants = getParticipantList()
+
+  return (
+    <section className="p-8">
+      <div className="rounded-2xl bg-white p-6 shadow-sm">
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-bold">参会人管理</h3>
+            <p className="mt-1 text-sm text-slate-500">
+              根据会议参会人员自动汇总，便于查看成员参与情况
+            </p>
+          </div>
+
+          <span className="rounded-full bg-blue-50 px-3 py-1 text-sm text-blue-600">
+            共 {participants.length} 位参会人/团队
+          </span>
+        </div>
+
+        {participants.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
+            暂无参会人信息，请先新建会议。
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-4">
+            {participants.map((participant) => {
+              const relatedMeetings = meetings.filter((meeting) =>
+                meeting.participants.includes(participant)
+              )
+
+              return (
+                <div
+                  key={participant}
+                  className="rounded-2xl border border-slate-200 bg-slate-50 p-5"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">
+                      {participant.slice(0, 1)}
+                    </div>
+                    <div>
+                      <h4 className="font-semibold">{participant}</h4>
+                      <p className="text-xs text-slate-500">
+                        参与 {relatedMeetings.length} 场会议
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 space-y-2">
+                    {relatedMeetings.map((meeting) => (
+                      <button
+                        key={meeting.id}
+                        onClick={() => openMeetingDetail(meeting)}
+                        className="block w-full rounded-xl bg-white px-3 py-2 text-left text-xs text-slate-600 hover:text-blue-600"
+                      >
+                        {meeting.title}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900">
       <div className="flex min-h-screen">
@@ -778,9 +958,11 @@ ${minuteResult.nextSteps.map((item, index) => `${index + 1}. ${item}`).join('\n'
           )}
 
           {currentPage === 'dashboard' && <Dashboard />}
+          {currentPage === 'meetings' && <MeetingsPage />}
           {currentPage === 'meetingDetail' && <MeetingDetail />}
           {currentPage === 'tasks' && <TasksPage />}
           {currentPage === 'minutes' && <MinutesPage />}
+          {currentPage === 'participants' && <ParticipantsPage />}
         </main>
       </div>
 
