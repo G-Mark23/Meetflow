@@ -1,5 +1,14 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
+import { saveAs } from 'file-saver'
+import {
+  AlignmentType,
+  Document,
+  HeadingLevel,
+  Packer,
+  Paragraph,
+  TextRun,
+} from 'docx'
 import {
   ArrowLeft,
   CalendarDays,
@@ -332,6 +341,113 @@ ${minuteResult.nextSteps.map((item, index) => `${index + 1}. ${item}`).join('\n'
     setCopyMessage('Markdown 文件已导出')
     setTimeout(() => setCopyMessage(''), 2000)
   }
+
+  const exportWord = async () => {
+  if (!minuteResult) return
+
+  const createHeading = (text: string) =>
+    new Paragraph({
+      text,
+      heading: HeadingLevel.HEADING_2,
+      spacing: { before: 300, after: 120 },
+    })
+
+  const createText = (text: string) =>
+    new Paragraph({
+      children: [
+        new TextRun({
+          text,
+          font: 'Microsoft YaHei',
+          size: 22,
+        }),
+      ],
+      spacing: { after: 120 },
+    })
+
+  const createList = (items: string[]) =>
+    items.map(
+      (item, index) =>
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: `${index + 1}. ${item}`,
+              font: 'Microsoft YaHei',
+              size: 22,
+            }),
+          ],
+          spacing: { after: 100 },
+        })
+    )
+
+  const taskParagraphs = minuteResult.tasks.map(
+    (task, index) =>
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: `${index + 1}. ${task.title}｜负责人：${task.owner}｜截止时间：${task.deadline}｜优先级：${task.priority}｜状态：${task.status}`,
+            font: 'Microsoft YaHei',
+            size: 22,
+          }),
+        ],
+        spacing: { after: 100 },
+      })
+  )
+
+  const doc = new Document({
+    sections: [
+      {
+        properties: {},
+        children: [
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `${selectedMeeting.title} 会议纪要`,
+                bold: true,
+                font: 'Microsoft YaHei',
+                size: 36,
+              }),
+            ],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 400 },
+          }),
+
+          createHeading('一、会议基本信息'),
+          createText(`会议主题：${selectedMeeting.title}`),
+          createText(`会议时间：${selectedMeeting.time}`),
+          createText(`参会人员：${selectedMeeting.participants}`),
+          createText(`会议类型：${selectedMeeting.type}`),
+
+          createHeading('二、会议背景'),
+          createText(selectedMeeting.background),
+
+          createHeading('三、会议摘要'),
+          createText(minuteResult.summary),
+
+          createHeading('四、讨论要点'),
+          ...createList(minuteResult.points),
+
+          createHeading('五、关键结论'),
+          ...createList(minuteResult.decisions),
+
+          createHeading('六、待办事项'),
+          ...taskParagraphs,
+
+          createHeading('七、风险与问题'),
+          ...createList(minuteResult.risks),
+
+          createHeading('八、下一步计划'),
+          ...createList(minuteResult.nextSteps),
+        ],
+      },
+    ],
+  })
+
+  const blob = await Packer.toBlob(doc)
+  saveAs(blob, `${selectedMeeting.title}-会议纪要.docx`)
+
+  setCopyMessage('Word 文件已导出')
+  setTimeout(() => setCopyMessage(''), 2000)
+}
 
   const createMeeting = () => {
     if (!newMeeting.title.trim()) {
@@ -691,6 +807,7 @@ ${minuteResult.nextSteps.map((item, index) => `${index + 1}. ${item}`).join('\n'
               result={minuteResult}
               onCopy={copyMinutes}
               onExport={exportMarkdown}
+              onExportWord={exportWord}
             />
           )}
         </div>
@@ -1108,30 +1225,40 @@ function MinuteResultView({
   result,
   onCopy,
   onExport,
+  onExportWord,
 }: {
   result: MinuteResult
   onCopy: () => void
   onExport: () => void
+  onExportWord: () => void
 }) {
   return (
     <div className="mt-6 space-y-5">
-      <div className="flex gap-2">
-        <button
-          onClick={onCopy}
-          className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-        >
-          <Copy size={16} />
-          复制纪要
-        </button>
+      <div className="flex flex-wrap gap-2">
+  <button
+    onClick={onCopy}
+    className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+  >
+    <Copy size={16} />
+    复制纪要
+  </button>
 
-        <button
-          onClick={onExport}
-          className="flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium hover:bg-slate-50"
-        >
-          <Download size={16} />
-          导出 Markdown
-        </button>
-      </div>
+  <button
+    onClick={onExport}
+    className="flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium hover:bg-slate-50"
+  >
+    <Download size={16} />
+    导出 Markdown
+  </button>
+
+  <button
+    onClick={onExportWord}
+    className="flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium hover:bg-slate-50"
+  >
+    <Download size={16} />
+    导出 Word
+  </button>
+</div>
 
       <div>
         <h4 className="font-semibold">会议摘要</h4>
